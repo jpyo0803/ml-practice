@@ -59,20 +59,27 @@ def train(model, loaders, criterion, optimizer, device, num_epoch):
     test_loss, test_acc = validate(model, test_loader, criterion, device)
     print(f"Test Loss: {test_loss:.4f} | Test Accuracy: {test_acc:.4f}")
 
-# 여기서 학습 
+    return model
 
-# 데이터셋 로드
-train_loader, val_loader, test_loader = load_and_preprocess_mnist() 
+if __name__ == "__main__":
+    # 여기서 학습 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("device (train): ", device)
-model = SimpleCNN().to(device)
+    # 데이터셋 로드
+    train_loader, val_loader, test_loader = load_and_preprocess_mnist() 
 
-num_epoch = 5
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("device (train): ", device)
+    model = SimpleCNN().to(device)
 
-train(model, (train_loader, val_loader, test_loader), criterion, optimizer, device, num_epoch)
+    num_epoch = 5
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+    trained_model = train(model, (train_loader, val_loader, test_loader), criterion, optimizer, device, num_epoch)
+
+    model_path = "./weight/model_weight.pth"
+
+    torch.save(trained_model.state_dict(), model_path)
 
 
 
