@@ -1,0 +1,24 @@
+import torch.nn as nn
+import torch.nn.functional as F
+
+# Convolution + BatchNorm + Relu 모듈 
+class ConvBlock(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__() # nn.Module을 상속받으면 필수적으로 불러주어야 함
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.bn = nn.BatchNorm2d(out_channels)
+
+    def forward(self, x):
+        # (Conv) -> (Batch Norm) -> (Relu)
+        return F.relu(self.bn(self.conv(x)))
+
+# Fully Connected Layer 모듈 
+class FCBlock(nn.Module):
+    def __init__(self, in_features, out_features, dropout=0.5):
+        super().__init__()
+        self.fc = nn.Linear(in_features, out_features)
+        # dropout은 base 아키텍처를 기반으로 변종 아키텍처를 두는 효과를 통해 overfitting을 완화
+        self.drop = nn.Dropout(dropout)
+
+    def forward(self, x):
+        return self.drop(F.relu(self.fc(x)))
