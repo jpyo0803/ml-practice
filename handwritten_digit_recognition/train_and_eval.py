@@ -77,7 +77,7 @@ if __name__ == "__main__":
 
     trained_model = train(model, (train_loader, val_loader, test_loader), criterion, optimizer, device, num_epoch)
 
-    model_path = "./weight/model_weight.pth"
+    model_path = "./model_weight.pth"
 
     torch.save(trained_model.state_dict(), model_path)
 

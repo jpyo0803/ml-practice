@@ -10,7 +10,7 @@ _, _, test_loader = load_and_preprocess_mnist()
 
 model = SimpleCNN().to(device)
 
-model_path = "./weight/model_weight.pth"
+model_path = "./model_weight.pth"
 state_dict = torch.load(model_path)
 
 model.load_state_dict(state_dict)
