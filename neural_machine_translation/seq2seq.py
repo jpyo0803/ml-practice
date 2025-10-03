@@ -22,6 +22,9 @@ class Seq2Seq(nn.Module):
         # Encoder의 마지막 hidden state와 cell state를 Decoder의 초기 hidden state와 cell state로 사용
         encoder_outputs, hidden, cell = self.encoder(src)
 
+        hidden = hidden.view(self.encoder.num_layers, 2, batch_size, -1).sum(dim=1)
+        cell = cell.view(self.encoder.num_layers, 2, batch_size, -1).sum(dim=1)
+
         # 디코더의 첫 번째 입력은 항상 <bos> 토큰
         input = trg[0, :]
 

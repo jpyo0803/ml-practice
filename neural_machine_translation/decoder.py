@@ -3,7 +3,7 @@ import torch.nn as nn
 from attention import Attention
 
 class Decoder(nn.Module):
-    def __init__(self, output_size, embedding_size, hidden_size, num_layers, dropout, attention):
+    def __init__(self, output_size, embedding_size, hidden_size, num_layers, dropout, attention: Attention):
         super().__init__()
         self.output_size = output_size
         self.hidden_size = hidden_size
@@ -12,7 +12,7 @@ class Decoder(nn.Module):
 
         self.embedding = nn.Embedding(output_size, embedding_size)
         self.rnn = nn.LSTM(embedding_size + hidden_size, hidden_size, num_layers, dropout=dropout)
-        self.fc_out = nn.Linear(hidden_size * 2 + embedding_size, output_size)
+        self.fc_out = nn.Linear(hidden_size * 2, output_size)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, input, hidden, cell, encoder_outputs):
@@ -40,7 +40,7 @@ class Decoder(nn.Module):
         # outputs: [1, batch_size, hidden_size]
 
         # 출력 예측
-        prediction = self.fc_out(torch.cat((outputs.squeeze(0), context.squeeze(0), embedded.squeeze(0)), dim=1))
+        prediction = self.fc_out(torch.cat((outputs.squeeze(0), context.squeeze(0)), dim=1))
         # prediction: [batch_size, output_size]
 
         return prediction, hidden, cell

@@ -1,56 +1,58 @@
 import torch
 import torch.nn as nn
-
 from torch.utils.data import DataLoader
+from datasets import load_dataset
+import spacy
+from collections import Counter
 
-from torchtext.datasets import Multi30k
-from torchtext.data.utils import get_tokenizer
-from torchtext.vocab import build_vocab_from_iterator
+SRC_LANGUAGE = "en"
+TGT_LANGUAGE = "de"
 
-SRC_LANGUAGE = 'en'
-TGT_LANGUAGE = 'de'
-token_transform = {}
+# spaCy tokenizer 로드
+spacy_en = spacy.load("en_core_web_sm")
+spacy_de = spacy.load("de_core_news_sm")
 
-'''
-    Install the required spaCy models if not already installed:
-    python -m spacy download en_core_web_sm
-    python -m spacy download de_core_news_sm
-'''
-
-token_transform[SRC_LANGUAGE] = get_tokenizer('spacy', language='en_core_web_sm')
-token_transform[TGT_LANGUAGE] = get_tokenizer('spacy', language='de_core_news_sm')
+token_transform = {
+    SRC_LANGUAGE: lambda text: [tok.text.lower() for tok in spacy_en.tokenizer(text)],
+    TGT_LANGUAGE: lambda text: [tok.text.lower() for tok in spacy_de.tokenizer(text)],
+}
 
 UNK_IDX, PAD_IDX, BOS_IDX, EOS_IDX = 0, 1, 2, 3
-special_symbols = ['<unk>', '<pad>', '<bos>', '<eos>']
+special_symbols = ["<unk>", "<pad>", "<bos>", "<eos>"]
 
-def yield_tokens(data_iter, language_index):
-    # 토큰 생성을 위한 헬퍼 함수
-    for data_sample in data_iter:
-        yield token_transform[SRC_LANGUAGE if language_index == 0 else TGT_LANGUAGE](data_sample[language_index])
+# ===== Vocab 클래스 =====
+class Vocab:
+    def __init__(self, counter, specials):
+        self.itos = list(specials) + [tok for tok, freq in counter.items() if tok not in specials]
+        self.stoi = {tok: i for i, tok in enumerate(self.itos)}
+        self.unk_index = self.stoi["<unk>"]
 
+    def __len__(self):
+        return len(self.itos)
+
+    def __call__(self, tokens):
+        return [self.stoi.get(tok, self.unk_index) for tok in tokens]
+
+# ===== Vocab 빌더 =====
+def build_vocab(dataset_split, language, min_freq=1, max_size=5000):
+    counter = Counter()
+    for example in dataset_split:
+        tokens = token_transform[language](example[language])  # ✅ 수정됨
+        counter.update(tokens)
+    most_common = dict(counter.most_common(max_size))
+    return Vocab(most_common, special_symbols)
+
+# ===== 데이터 로더 =====
 def load_and_preprocess_nmt(batch_size=32, max_vocab_size=5000):
-    print("Load and preprocess Multi30k dataset...")
-    train_datapipe, val_datapipe, test_datapipe = Multi30k(root='./data', split=('train', 'valid', 'test'), language_pair=(TGT_LANGUAGE, SRC_LANGUAGE))
+    print("Load Multi30k dataset from HuggingFace (bentrevett/multi30k)...")
+    dataset = load_dataset("bentrevett/multi30k")
+
+    train_data, val_data, test_data = dataset["train"], dataset["validation"], dataset["test"]
 
     print("Building vocabularies...")
     vocab_transform = {}
-
-    # 언어 인덱스: 영어는 1, 독일어는 0
-    en_vocab = build_vocab_from_iterator(yield_tokens(train_datapipe, 1),
-                                            min_freq=2,
-                                            specials=special_symbols,
-                                            special_first=True,
-                                            max_tokens=max_vocab_size)
-    en_vocab.set_default_index(UNK_IDX)  # 알 수 없는 토큰은 <unk>로 매핑
-    vocab_transform[SRC_LANGUAGE] = en_vocab
-
-    de_vocab = build_vocab_from_iterator(yield_tokens(train_datapipe, 0),
-                                            min_freq=2,
-                                            specials=special_symbols,
-                                            special_first=True,
-                                            max_tokens=max_vocab_size)
-    de_vocab.set_default_index(UNK_IDX)  # 알 수 없는 토큰은 <unk>로 매핑
-    vocab_transform[TGT_LANGUAGE] = de_vocab
+    vocab_transform[SRC_LANGUAGE] = build_vocab(train_data, SRC_LANGUAGE, max_size=max_vocab_size)
+    vocab_transform[TGT_LANGUAGE] = build_vocab(train_data, TGT_LANGUAGE, max_size=max_vocab_size)
 
     SRC_VOCAB_SIZE = len(vocab_transform[SRC_LANGUAGE])
     TGT_VOCAB_SIZE = len(vocab_transform[TGT_LANGUAGE])
@@ -59,20 +61,22 @@ def load_and_preprocess_nmt(batch_size=32, max_vocab_size=5000):
 
     def collate_fn(batch):
         src_batch, tgt_batch = [], []
-        for src_sample, tgt_sample in batch:
-            src_tensor = torch.tensor([BOS_IDX] + vocab_transform[SRC_LANGUAGE](token_transform[SRC_LANGUAGE](src_sample)) + [EOS_IDX], dtype=torch.long)
-            tgt_tensor = torch.tensor([BOS_IDX] + vocab_transform[TGT_LANGUAGE](token_transform[TGT_LANGUAGE](tgt_sample)) + [EOS_IDX], dtype=torch.long)
+        for example in batch:
+            src_tokens = vocab_transform[SRC_LANGUAGE](token_transform[SRC_LANGUAGE](example[SRC_LANGUAGE]))
+            tgt_tokens = vocab_transform[TGT_LANGUAGE](token_transform[TGT_LANGUAGE](example[TGT_LANGUAGE]))
+            src_tensor = torch.tensor([BOS_IDX] + src_tokens + [EOS_IDX], dtype=torch.long)
+            tgt_tensor = torch.tensor([BOS_IDX] + tgt_tokens + [EOS_IDX], dtype=torch.long)
             src_batch.append(src_tensor)
             tgt_batch.append(tgt_tensor)
         src_batch = nn.utils.rnn.pad_sequence(src_batch, padding_value=PAD_IDX)
         tgt_batch = nn.utils.rnn.pad_sequence(tgt_batch, padding_value=PAD_IDX)
         return src_batch, tgt_batch
 
-    train_dataloader = DataLoader(list(train_datapipe), batch_size=batch_size, collate_fn=collate_fn)
-    val_dataloader = DataLoader(list(val_datapipe), batch_size=batch_size, collate_fn=collate_fn)
-    test_dataloader = DataLoader(list(test_datapipe), batch_size=batch_size, collate_fn=collate_fn)
+    train_dataloader = DataLoader(train_data, batch_size=batch_size, collate_fn=collate_fn)
+    val_dataloader = DataLoader(val_data, batch_size=batch_size, collate_fn=collate_fn)
+    test_dataloader = DataLoader(test_data, batch_size=batch_size, collate_fn=collate_fn)
 
     return train_dataloader, val_dataloader, test_dataloader, vocab_transform
 
 if __name__ == "__main__":
-    load_and_preprocess_nmt()
+    train_dl, val_dl, test_dl, vocab_transform = load_and_preprocess_nmt()

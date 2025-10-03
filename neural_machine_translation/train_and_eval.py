@@ -6,9 +6,9 @@ import math
 
 from preproc_dataset import load_and_preprocess_nmt, PAD_IDX
 from encoder import Encoder
+from attention import Attention
 from decoder import Decoder
 from seq2seq import Seq2Seq
-from attention import Attention
 
 def train_one_epoch(model, loader, optimizer, criterion, clip, device):
     model.train()
@@ -69,7 +69,7 @@ def train(model, loaders, optimizer, criterion, device, num_epoch, clip):
         start_time = time.time()
         
         train_loss = train_one_epoch(model, train_loader, optimizer, criterion, clip, device)
-        valid_loss = validate(model, val_loader, criterion, device)
+        valid_loss = validate(model, valid_loader, criterion, device)
         
         end_time = time.time()
         epoch_mins, epoch_secs = int((end_time - start_time) / 60), int((end_time - start_time) % 60)
@@ -85,7 +85,7 @@ def train(model, loaders, optimizer, criterion, device, num_epoch, clip):
 
 if __name__ == "__main__":
     # 데이터셋 로드
-    train_loader, val_loader, test_loader, vocabs = load_and_preprocess_nmt(max_vocab_size=5000)
+    train_loader, val_loader, test_loader, vocabs = load_and_preprocess_nmt(max_vocab_size=15000)
 
     # 하이퍼파라미터
     INPUT_DIM = len(vocabs['en'])
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     N_LAYERS = 2
     ENC_DROPOUT = 0.5
     DEC_DROPOUT = 0.5
-    NUM_EPOCH = 2
+    NUM_EPOCH = 10
     CLIP = 1
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
