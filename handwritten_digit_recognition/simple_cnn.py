@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from my_modules import ConvBlock, FCBlock
 
+from linear import MyLinear
+
 class SimpleCNN(nn.Module):
     def __init__(self, num_classes=10):
         super().__init__()
@@ -10,7 +12,7 @@ class SimpleCNN(nn.Module):
         self.layer2 = ConvBlock(32, 64)
         self.pool2 = nn.MaxPool2d(2)
         self.fc1 = FCBlock(64*7*7, 128)
-        self.fc2 = nn.Linear(128, num_classes)
+        self.fc2 = MyLinear(128, num_classes)
 
     def forward(self, x):
         x = self.layer1(x)
