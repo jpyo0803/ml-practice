@@ -26,7 +26,8 @@ def train_one_epoch(model, loader, optimizer, criterion, clip, device):
         # trg: [trg_len, batch_size]
 
         output_dim = output.shape[-1]
-
+        
+        # 출력과 타겟 시퀀스의 첫 토큰(BOS)을 제외하고 loss 계산
         output = output[1:].view(-1, output_dim)
         trg = trg[1:].view(-1)
 

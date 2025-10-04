@@ -11,6 +11,7 @@ class Decoder(nn.Module):
         self.attention = attention
 
         self.embedding = nn.Embedding(output_size, embedding_size)
+        # 이전 step의 출력과 context 벡터를 concat하여 LSTM에 입력
         self.rnn = nn.LSTM(embedding_size + hidden_size, hidden_size, num_layers, dropout=dropout)
         self.fc_out = nn.Linear(hidden_size * 2, output_size)
         self.dropout = nn.Dropout(dropout)
@@ -28,7 +29,8 @@ class Decoder(nn.Module):
         a = self.attention(hidden[-1], encoder_outputs)  # a: [src_len, batch_size]
         a = a.permute(1, 0).unsqueeze(1)  # a: [batch_size, 1, src_len]
 
-        encoder_outputs = encoder_outputs.permute(1, 0, 2)  # encoder_outputs: [batch_size, src_len, hidden_size]
+        encoder_outputs = encoder_outputs.permute(1, 0, 2)  
+        # encoder_outputs: [batch_size, src_len, hidden_size]
 
         context = torch.bmm(a, encoder_outputs)  # context: [batch_size, 1, hidden_size]
 

@@ -23,7 +23,9 @@ special_symbols = ["<unk>", "<pad>", "<bos>", "<eos>"]
 # ===== Vocab 클래스 =====
 class Vocab:
     def __init__(self, counter, specials):
+        # index to token string
         self.itos = list(specials) + [tok for tok, freq in counter.items() if tok not in specials]
+        # token string to index
         self.stoi = {tok: i for i, tok in enumerate(self.itos)}
         self.unk_index = self.stoi["<unk>"]
 
@@ -37,8 +39,11 @@ class Vocab:
 def build_vocab(dataset_split, language, min_freq=1, max_size=5000):
     counter = Counter()
     for example in dataset_split:
-        tokens = token_transform[language](example[language])  # ✅ 수정됨
+        # 특정 언어의 문장을 spaCy 토크나이저로 토큰화함
+        tokens = token_transform[language](example[language])
+        # 토큰 빈도수 업데이트
         counter.update(tokens)
+    # 가장 빈도수가 높은 토큰들로 vocab 구성
     most_common = dict(counter.most_common(max_size))
     return Vocab(most_common, special_symbols)
 
@@ -48,11 +53,17 @@ def load_and_preprocess_nmt(batch_size=32, max_vocab_size=5000):
     dataset = load_dataset("bentrevett/multi30k")
 
     train_data, val_data, test_data = dataset["train"], dataset["validation"], dataset["test"]
+    '''
+        train_data, val_data, test_data는 각각 Dataset 객체
+        (영어 문장, 독일어 문장) 쌍을 포함
+    '''
 
     print("Building vocabularies...")
     vocab_transform = {}
     vocab_transform[SRC_LANGUAGE] = build_vocab(train_data, SRC_LANGUAGE, max_size=max_vocab_size)
     vocab_transform[TGT_LANGUAGE] = build_vocab(train_data, TGT_LANGUAGE, max_size=max_vocab_size)
+
+    # Vocab transform은 언어들의 vocab을 저장하는 딕셔너리
 
     SRC_VOCAB_SIZE = len(vocab_transform[SRC_LANGUAGE])
     TGT_VOCAB_SIZE = len(vocab_transform[TGT_LANGUAGE])
@@ -62,12 +73,15 @@ def load_and_preprocess_nmt(batch_size=32, max_vocab_size=5000):
     def collate_fn(batch):
         src_batch, tgt_batch = [], []
         for example in batch:
+            # 문장을 토큰 리스트로 변환 후 vocab을 통해 인덱스 리스트로 변환
             src_tokens = vocab_transform[SRC_LANGUAGE](token_transform[SRC_LANGUAGE](example[SRC_LANGUAGE]))
             tgt_tokens = vocab_transform[TGT_LANGUAGE](token_transform[TGT_LANGUAGE](example[TGT_LANGUAGE]))
+            # 앞 뒤로 BOS, EOS 토큰 추가
             src_tensor = torch.tensor([BOS_IDX] + src_tokens + [EOS_IDX], dtype=torch.long)
             tgt_tensor = torch.tensor([BOS_IDX] + tgt_tokens + [EOS_IDX], dtype=torch.long)
             src_batch.append(src_tensor)
             tgt_batch.append(tgt_tensor)
+        # 패딩을 위해 시퀀스 길이를 맞춤
         src_batch = nn.utils.rnn.pad_sequence(src_batch, padding_value=PAD_IDX)
         tgt_batch = nn.utils.rnn.pad_sequence(tgt_batch, padding_value=PAD_IDX)
         return src_batch, tgt_batch
