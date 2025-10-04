@@ -1,5 +1,6 @@
 import torch.nn as nn
-import torch.nn.functional as F
+
+from relu import my_relu
 
 # Convolution + BatchNorm + Relu 모듈 
 class ConvBlock(nn.Module):
@@ -10,7 +11,7 @@ class ConvBlock(nn.Module):
 
     def forward(self, x):
         # (Conv) -> (Batch Norm) -> (Relu)
-        return F.relu(self.bn(self.conv(x)))
+        return my_relu(self.bn(self.conv(x)))
 
 # Fully Connected Layer 모듈 
 class FCBlock(nn.Module):
@@ -21,4 +22,4 @@ class FCBlock(nn.Module):
         self.drop = nn.Dropout(dropout)
 
     def forward(self, x):
-        return self.drop(F.relu(self.fc(x)))
+        return self.drop(my_relu(self.fc(x)))
