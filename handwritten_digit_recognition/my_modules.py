@@ -2,12 +2,13 @@ import torch.nn as nn
 
 from relu import my_relu
 from linear import MyLinear
+from conv2d import MyConv2d
 
 # Convolution + BatchNorm + Relu 모듈 
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__() # nn.Module을 상속받으면 필수적으로 불러주어야 함
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.conv = MyConv2d(in_channels, out_channels, kernel_size=3, padding=1)
         self.bn = nn.BatchNorm2d(out_channels)
 
     def forward(self, x):
